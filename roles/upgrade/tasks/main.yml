@@ -1,0 +1,26 @@
+---
+- name: Update packages
+  apt:
+    name: "*"
+    state: latest
+    update_cache: yes
+
+- name: Upgrading linux Kernel - Ubunutu 22.04 HWE
+  apt:
+    name: linux-image-generic-hwe-22.04
+    install_recommends: yes
+    state: latest
+  register: kernel_update_out
+
+- name: Update grub
+  command: update-grub
+  when: kernel_update_out.changed
+
+- name: Reboot the nodes (and Wait upto 5 mins max)
+  become: true
+  reboot:
+    reboot_timeout: 300
+
+- name: Remove unused dependencies
+  apt:
+    autoremove: yes
