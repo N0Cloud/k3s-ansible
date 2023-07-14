@@ -11,16 +11,17 @@
     install_recommends: yes
     state: latest
   register: kernel_update_out
+  when: have_gpu is defined and have_gpu == 'yes'
 
 - name: Update grub
   command: update-grub
-  when: kernel_update_out.changed
+  when: kernel_update_out is defined and kernel_update_out.changed
 
 - name: Reboot the nodes (and Wait upto 5 mins max)
   become: true
   reboot:
     reboot_timeout: 300
-  when: kernel_update_out.changed
+  when: kernel_update_out is defined and kernel_update_out.changed
 
 - name: Remove unused dependencies
   apt:
