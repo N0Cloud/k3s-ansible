@@ -20,7 +20,15 @@
   become: true
   reboot:
     reboot_timeout: 300
+  when: kernel_update_out.changed
 
 - name: Remove unused dependencies
   apt:
     autoremove: yes
+
+- name: Install/Update packages
+  apt:
+    name:
+      - nfs-common
+    state: latest
+    update_cache: yes
