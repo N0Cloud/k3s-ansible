@@ -2,3 +2,4 @@
 *.log
 ansible.cfg
 .vscode/settings.json
+kubeconfig
