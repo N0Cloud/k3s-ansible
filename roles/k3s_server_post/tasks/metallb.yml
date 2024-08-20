@@ -1,15 +1,15 @@
 ---
 - name: Create manifests directory for temp configuration
-  file:
+  ansible.builtin.file:
     path: /tmp/k3s
     state: directory
     owner: "{{ ansible_user_id }}"
-    mode: 0755
+    mode: "0755"
   with_items: "{{ groups[group_name_master | default('master')] }}"
   run_once: true
 
 - name: Delete outdated metallb replicas
-  shell: |-
+  ansible.builtin.shell: |-
     set -o pipefail
 
     REPLICAS=$(k3s kubectl --namespace='metallb-system' get replicasets \
@@ -30,23 +30,23 @@
   with_items: "{{ groups[group_name_master | default('master')] }}"
 
 - name: Copy metallb CRs manifest to first master
-  template:
-    src: "metallb.crs.j2"
-    dest: "/tmp/k3s/metallb-crs.yaml"
+  ansible.builtin.template:
+    src: metallb.crs.j2
+    dest: /tmp/k3s/metallb-crs.yaml
     owner: "{{ ansible_user_id }}"
-    mode: 0755
+    mode: "0755"
   with_items: "{{ groups[group_name_master | default('master')] }}"
   run_once: true
 
 - name: Test metallb-system namespace
-  command: >-
+  ansible.builtin.command: >-
     k3s kubectl -n metallb-system
   changed_when: false
   with_items: "{{ groups[group_name_master | default('master')] }}"
   run_once: true
 
 - name: Wait for MetalLB resources
-  command: >-
+  ansible.builtin.command: >-
     k3s kubectl wait {{ item.resource }}
     --namespace='metallb-system'
     {% if item.name | default(False) -%}{{ item.name }}{%- endif %}
@@ -83,15 +83,29 @@
   loop_control:
     label: "{{ item.description }}"
 
+- name: Set metallb webhook service name
+  ansible.builtin.set_fact:
+    metallb_webhook_service_name: >-
+      {{
+        (
+          (metal_lb_controller_tag_version | regex_replace('^v', ''))
+          is
+          version('0.14.4', '<', version_type='semver')
+        ) | ternary(
+          'webhook-service',
+          'metallb-webhook-service'
+        )
+      }}
+
 - name: Test metallb-system webhook-service endpoint
-  command: >-
-    k3s kubectl -n metallb-system get endpoints webhook-service
+  ansible.builtin.command: >-
+    k3s kubectl -n metallb-system get endpoints {{ metallb_webhook_service_name }}
   changed_when: false
   with_items: "{{ groups[group_name_master | default('master')] }}"
   run_once: true
 
 - name: Apply metallb CRs
-  command: >-
+  ansible.builtin.command: >-
     k3s kubectl apply -f /tmp/k3s/metallb-crs.yaml
     --timeout='{{ metal_lb_available_timeout }}'
   register: this
@@ -101,7 +115,7 @@
   retries: 5
 
 - name: Test metallb-system resources for Layer 2 configuration
-  command: >-
+  ansible.builtin.command: >-
     k3s kubectl -n metallb-system get {{ item }}
   changed_when: false
   run_once: true
@@ -111,7 +125,7 @@
     - L2Advertisement
 
 - name: Test metallb-system resources for BGP configuration
-  command: >-
+  ansible.builtin.command: >-
     k3s kubectl -n metallb-system get {{ item }}
   changed_when: false
   run_once: true
